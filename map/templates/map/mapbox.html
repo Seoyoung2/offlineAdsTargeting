@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset='utf-8' />
+    <title>Select features around a clicked point</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.1.0/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.1.0/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        h2, h3 {
+            margin: 10px;
+            font-size: 1.2em;
+        }
+        h3 {
+            font-size: 1em;
+        }
+        p {
+            font-size: 0.85em;
+            margin: 10px;
+            text-align: left;
+        }
+        /**
+* Create a position for the map
+* on the page */
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        /**
+* Set rules for how the map overlays
+* (information box and legend) will be displayed
+* on the page. */
+        .map-overlay {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.8);
+            margin-right: 20px;
+            font-family: Arial, sans-serif;
+            overflow: auto;
+            border-radius: 3px;
+        }
+
+        #features {
+            top: 0;
+            height: 310px;
+            margin-top: 20px;
+            width: 290px;
+        }
+
+        #legend {
+            padding: 10px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            line-height: 18px;
+            height: 150px;
+            margin-bottom: 40px;
+            width: 100px;
+        }
+
+        .legend-key {
+            display: inline-block;
+            border-radius: 20%;
+            width: 10px;
+            height: 10px;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+
+    <div id='map'></div>
+    <div class='map-overlay' id='features'>
+        <h2>TOP 10 Income Level District</h2>
+        <div id='pd'>
+            <p>1st : Beverly Hills (202014)</p>
+            <p>2nd : Agoura Hills (140417)</p>
+            <p>3rd : Century City (120208)</p>
+            <p>4th : Cerritos (112250)</p>
+            <p>5th : Castaic (110491)</p>
+            <p>6th : Agua Dulce (101220)</p>
+            <p>7th : Bradbury (89583)</p>
+            <p>8th : Castaic Canyons (88404)</p>
+            <p>9th : Acton (87125)</p>
+            <p>10th : Brentwood (86944)</p>
+        </div>
+    </div>
+
+
+    <script>
+        var location_list = {{ location_list }};
+
+        mapboxgl.accessToken =
+            'pk.eyJ1Ijoic2VveW91bmciLCJhIjoiY2p5MGZkd2ZkMDJrOTNtcThidXJyZmV0ZiJ9.vz3t5teL8MWhweTDWyLQew';
+        var map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: location_list[0],
+            minZoom: 3,
+            zoom: 9
+        });
+
+        var marker = new mapboxgl.Marker() // initialize a new marker
+        .setLngLat(location_list[0]) // Marker [lng, lat] coordinates
+        .addTo(map); // Add the marker to the map
+
+        var marker = new mapboxgl.Marker() // initialize a new marker
+        .setLngLat(location_list[1]) // Marker [lng, lat] coordinates
+        .addTo(map); // Add the marker to the map
+
+        var marker = new mapboxgl.Marker() // initialize a new marker
+        .setLngLat(location_list[2]) // Marker [lng, lat] coordinates
+        .addTo(map); // Add the marker to the map
+
+
+        
+        map.on('load', function () {
+            // Add the source to query. In this example we're using
+            // county polygons uploaded as vector tiles
+
+            var layers = ['0-10', '10-20', '20-50', '50-100', '100-200', '200-500', '500-1000', '1000+'];
+            var colors = ['#FFEDA0', '#FED976', '#FEB24C', '#FD8D3C', '#FC4E2A', '#E31A1C', '#BD0026', '#800026'];
+            map.addSource('counties', {
+                "type": "vector",
+                "url": "mapbox://mapbox.82pkq93d"
+            });
+
+            map.addLayer({
+                "id": "counties",
+                "type": "fill",
+                "source": "counties",
+                "source-layer": "original",
+                "paint": {
+                    "fill-outline-color": "rgba(0,0,0,0.1)",
+                    "fill-color": "rgba(0,0,0,0.1)"
+                }
+            }, 'settlement-label'); // Place polygon under these labels.
+
+            map.addLayer({
+                "id": "counties-highlighted",
+                "type": "fill",
+                "source": "counties",
+                "source-layer": "original",
+                "paint": {
+                    "fill-outline-color": "#484896",
+                    "fill-color": "#6e599f",
+                    "fill-opacity": 0.75
+                },
+                "filter": ["in", "FIPS", ""]
+            }, 'settlement-label'); // Place polygon under these labels.
+
+            map.on('click', function (e) {
+                // set bbox as 5px reactangle area around clicked point
+                var bbox = [
+                    [e.point.x - 5, e.point.y - 5],
+                    [e.point.x + 5, e.point.y + 5]
+                ];
+                var features = map.queryRenderedFeatures(bbox, {
+                    layers: ['counties']
+                });
+
+                // Run through the selected features and set a filter
+                // to match features with unique FIPS codes to activate
+                // the `counties-highlighted` layer.
+                var filter = features.reduce(function (memo, feature) {
+                    memo.push(feature.properties.FIPS);
+                    return memo;
+                }, ['in', 'FIPS']);
+
+                map.setFilter("counties-highlighted", filter);
+            });
+        });
+        var geocoder = new MapboxGeocoder({ // Initialize the geocoder
+            accessToken: mapboxgl.accessToken, // Set the access token
+            mapboxgl: mapboxgl, // Set the mapbox-gl instance
+            marker: false, // Do not use the default marker style
+          });
+          
+          // Add the geocoder to the map
+          map.addControl(geocoder);
+    </script>
+
+</body>
+
+</html>
